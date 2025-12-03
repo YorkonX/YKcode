@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OKX 持仓跟踪</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 1.5rem; }
+    h1 { margin-bottom: 0.5rem; }
+    table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+    th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
+    th { background-color: #f5f5f5; }
+    .controls { display: flex; gap: 0.5rem; margin-top: 1rem; }
+    .status { margin-top: 0.5rem; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>OKX 持仓跟踪与盈亏导出</h1>
+  <p>自动轮询 OKX 持仓，导出 Excel，并支持记录交易日志。</p>
+
+  <div class="controls">
+    <button id="refresh">立即刷新</button>
+    <button id="export">下载最新 Excel</button>
+  </div>
+  <div class="status" id="status">等待数据…</div>
+
+  <table id="positions">
+    <thead>
+      <tr>
+        <th>合约</th>
+        <th>方向</th>
+        <th>仓位</th>
+        <th>开仓均价</th>
+        <th>标记价格</th>
+        <th>未实现盈亏</th>
+        <th>未实现盈亏率</th>
+        <th>保证金模式</th>
+        <th>杠杆</th>
+        <th>更新时间</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const tbody = document.querySelector('#positions tbody');
+
+    async function fetchPositions(manual = false) {
+      statusEl.textContent = manual ? '正在手动刷新…' : '自动轮询中…';
+      const endpoint = manual ? '/refresh' : '/positions';
+      try {
+        const res = await fetch(endpoint);
+        if (!res.ok) throw new Error('请求失败');
+        const data = await res.json();
+        renderTable(data.positions);
+        statusEl.textContent = `最新更新时间：${new Date(data.updated_at).toLocaleString()}`;
+      } catch (e) {
+        statusEl.textContent = `获取数据失败：${e.message}`;
+      }
+    }
+
+    function renderTable(positions) {
+      tbody.innerHTML = '';
+      positions.forEach(pos => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${pos.inst_id}</td>
+          <td>${pos.pos_side}</td>
+          <td>${pos.position}</td>
+          <td>${pos.avg_px}</td>
+          <td>${pos.mark_px}</td>
+          <td>${pos.upl}</td>
+          <td>${pos.upl_ratio}</td>
+          <td>${pos.mgn_mode ?? ''}</td>
+          <td>${pos.lever ?? ''}</td>
+          <td>${new Date(pos.ts).toLocaleString()}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('refresh').addEventListener('click', () => fetchPositions(true));
+    document.getElementById('export').addEventListener('click', () => {
+      window.location.href = '/export';
+    });
+
+    fetchPositions();
+    setInterval(fetchPositions, 15000);
+  </script>
+</body>
+</html>
